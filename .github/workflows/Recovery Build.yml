@@ -128,9 +128,25 @@ jobs:
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         set -e
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && mka adbd ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+        # This build generation treats $(PRODUCT_OUT)/kernel as an existing
+        # source file, not a ninja target. The device tree ships the fixed
+        # prebuilt kernel, so stage it after `make clean` and before ninja.
+        OUT=out/target/product/${{ github.event.inputs.DEVICE_NAME }}
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && \
+          mkdir -p "$OUT" && \
+          cp "${{ github.event.inputs.DEVICE_PATH }}/kernel" "$OUT/kernel" && \
+          mka adbd ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
+
+    - name: Verify recovery image was built
+      run: |
+        IMG="${{ steps.pwd.outputs.workspace-folder }}/fox_${{ github.event.inputs.MANIFEST_BRANCH }}/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img"
+        if [ ! -s "$IMG" ]; then
+          echo "ERROR: recovery.img missing or empty"
+          exit 1
+        fi
+        ls -lh "$IMG"
 
     - name: Check the output directory before uploading
       run: |

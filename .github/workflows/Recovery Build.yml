@@ -128,6 +128,12 @@ jobs:
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         set -e
+        # OrangeFox puts real files in recovery/root/vendor. The generic AOSP
+        # baseline ramdisk contains a root/vendor -> /system/vendor symlink,
+        # which rsync cannot install over that non-empty directory. Exclude
+        # only the source symlink; the real OrangeFox vendor tree remains.
+        sed -i 's@rsync -a --exclude=sdcard $(IGNORE_RECOVERY_SEPOLICY) $(IGNORE_CACHE_LINK)@rsync -a --exclude=sdcard --exclude=/vendor $(IGNORE_RECOVERY_SEPOLICY) $(IGNORE_CACHE_LINK)@' build/make/core/Makefile
+        grep -q -- '--exclude=/vendor' build/make/core/Makefile
         # This build generation treats $(PRODUCT_OUT)/kernel as an existing
         # source file, not a ninja target. The device tree ships the fixed
         # prebuilt kernel, so stage it after `make clean` and before ninja.
